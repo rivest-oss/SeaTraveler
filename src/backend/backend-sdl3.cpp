@@ -14,14 +14,30 @@
 ** along with this program.  If not, see <https://www.gnu.org/licenses/>.
 **/
 
-#include "backend.hpp"
+#include <cstdio>
+#include "../qpuriq/backend.hpp"
 
 namespace qpuriq::backend {
+	class BackendWindowSDL : public Window {
+		public:
+			~BackendWindowSDL(void) {};
+	};
+	
+	class BackendSDL : public Backend {
+		public:
+			~BackendSDL(void) {};
+	};
+	
 	bool is_sdl3_backend_available(void) {
 		#if defined(QPURIQ_ENABLE_BACKEND_SDL3)
 			return true;
 		#else
 			return false;
 		#endif
+	};
+	
+	std::unique_ptr<Backend> make_backend_sdl3(void) {
+		std::printf("[DEBUG] Using SDL3 backend\n");
+		return std::make_unique<BackendSDL>();
 	};
 };

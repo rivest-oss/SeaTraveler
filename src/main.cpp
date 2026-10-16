@@ -14,67 +14,19 @@
 ** along with this program.  If not, see <https://www.gnu.org/licenses/>.
 **/
 
-#include "Ox/include/nuclei.hpp"
-#include <SDL3/SDL.h>
-
-#if defined(PLATFORM_WEB)
-	#include <emscripten/emscripten.h>
-#endif
-
-const int screen_width = 1280;
-const int screen_height = 960;
-
-namespace qpuriq {};
-
-/*
-static SDL_Window *win = nullptr;
-static SDL_Renderer *renderer = nullptr;
-
-SDL_AppResult SDL_AppInit(void **appstate, int argc, char *argv[]) {
-	if(SDL_Init(SDL_INIT_VIDEO) == false) {
-		SDL_ShowSimpleMessageBox(SDL_MESSAGEBOX_ERROR, "Couldn't initialize SDL", SDL_GetError(), NULL);
-		return SDL_APP_FAILURE;
-	}
-	
-	if(SDL_CreateWindowAndRenderer("SeaTraveler", screen_width, screen_height, 0, &win, &renderer) == false) {
-		SDL_ShowSimpleMessageBox(SDL_MESSAGEBOX_ERROR, "Couldn't create window/renderer", SDL_GetError(), NULL);
-		return SDL_APP_FAILURE;
-	}
-	
-	return SDL_APP_CONTINUE;
-};
-
-SDL_AppResult SDL_AppEvent(void *appstate, SDL_Event *e) {
-	switch(e->type) {
-		case SDL_EVENT_QUIT:
-			return SDL_APP_SUCCESS;
-		
-		case SDL_EVENT_KEY_DOWN: {
-			if(e->key.key == SDLK_ESCAPE) {
-				return SDL_APP_SUCCESS;
-			}
-		};
-		
-		default:
-			break;
-	};
-	
-	return SDL_APP_CONTINUE;
-};
-
-SDL_AppResult SDL_AppIterate(void *appstate) {
-	SDL_SetRenderDrawColor(renderer, 216, 181, 137, 255);
-	SDL_RenderClear(renderer);
-	SDL_RenderPresent(renderer);
-	
-	return SDL_APP_CONTINUE;
-};
-
-void SDL_AppQuit(void *appstate, SDL_AppResult result) {
-	//
-};
-*/
+#include <cstdio>
+#include "qpuriq/backend.hpp"
 
 int main(int argc, const char **argv) {
+	std::unique_ptr<qpuriq::backend::Backend> backend;
+	
+	if(backend == nullptr && qpuriq::backend::is_sdl3_backend_available())
+		backend = qpuriq::backend::make_backend_sdl3();
+	
+	if(backend == nullptr) {
+		std::fprintf(stderr, "Couldn't find an available backend, exiting...\n");
+		return 1;
+	}
+	
 	return 0;
 };

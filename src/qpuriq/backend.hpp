@@ -20,12 +20,12 @@
 namespace qpuriq::backend {
 	class Window {
 		public:
-			virtual ~Window(void) = 0;
+			virtual ~Window(void) = default;
 	};
 	
 	class Backend {
 		public:
-			virtual ~Backend(void) = 0;
+			virtual ~Backend(void) = default;
 	};
 	
 	bool is_sdl3_backend_available(void);
