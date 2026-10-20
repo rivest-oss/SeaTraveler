@@ -15,6 +15,8 @@
 **/
 
 #include <SDL3/SDL.h>
+#include <SDL3_net/SDL_net.h>
+#include <SDL3_ttf/SDL_ttf.h>
 #include <cstdio>
 #include "../qpuriq/backend.hpp"
 
@@ -70,6 +72,16 @@ namespace qpuriq::backend {
 					std::fprintf(stderr, "Couldn't initialize SDL.\n");
 					return;
 				}
+
+				if(valid && (valid = NET_Init()) == false) {
+					std::fprintf(stderr, "Couldn't initialize SDL_net.\n");
+					return;
+				}
+
+				if(valid && (valid = TTF_Init()) == false) {
+					std::fprintf(stderr, "Couldn't initialize SDL_ttf.\n");
+					return;
+				}
 			};
 			
 			~BackendSDL(void) {
@@ -81,6 +93,8 @@ namespace qpuriq::backend {
 			};
 			
 			void quit(void) {
+				TTF_Quit();
+				NET_Quit();
 				SDL_Quit();
 			};
 	};
