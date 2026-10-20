@@ -14,18 +14,75 @@
 ** along with this program.  If not, see <https://www.gnu.org/licenses/>.
 **/
 
+#include <SDL3/SDL.h>
 #include <cstdio>
 #include "../qpuriq/backend.hpp"
 
 namespace qpuriq::backend {
 	class BackendWindowSDL : public Window {
+		private:
+			SDL_Window *window = nullptr;
+		
 		public:
-			~BackendWindowSDL(void) {};
+			BackendWindowSDL(int width, int height, std::string &title) {
+				const char *c_title = title.c_str();
+				
+				window = SDL_CreateWindow(
+					c_title,
+					width,
+					height,
+					SDL_WINDOW_HIDDEN
+				);
+			};
+			
+			~BackendWindowSDL(void) {
+				if(window != nullptr)
+					SDL_DestroyWindow(window);
+			};
+			
+			void make_current(void) {};
+			
+			void show(void) {
+				if(window != nullptr)
+					SDL_ShowWindow(window);
+			};
+			
+			void hide(void) {
+				if(window != nullptr)
+					SDL_HideWindow(window);
+			};
+			
+			void close(void) {
+				hide();
+				
+				if(window != nullptr)
+					SDL_DestroyWindow(window);
+			};
 	};
 	
 	class BackendSDL : public Backend {
+		private:
+			bool valid = false;
+		
 		public:
-			~BackendSDL(void) {};
+			BackendSDL(void) {
+				if((valid = SDL_Init(SDL_INIT_VIDEO | SDL_INIT_EVENTS)) == false) {
+					std::fprintf(stderr, "Couldn't initialize SDL.\n");
+					return;
+				}
+			};
+			
+			~BackendSDL(void) {
+				quit();
+			};
+			
+			std::unique_ptr<Window> create_window(int width, int height, std::string &title) {
+				return std::make_unique<BackendWindowSDL>(width, height, title);
+			};
+			
+			void quit(void) {
+				SDL_Quit();
+			};
 	};
 	
 	bool is_sdl3_backend_available(void) {
@@ -37,7 +94,6 @@ namespace qpuriq::backend {
 	};
 	
 	std::unique_ptr<Backend> make_backend_sdl3(void) {
-		std::printf("[DEBUG] Using SDL3 backend\n");
 		return std::make_unique<BackendSDL>();
 	};
 };

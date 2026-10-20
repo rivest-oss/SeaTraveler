@@ -16,16 +16,25 @@
 
 #pragma once
 #include <memory>
+#include <string>
 
 namespace qpuriq::backend {
 	class Window {
 		public:
 			virtual ~Window(void) = default;
+			
+			virtual void make_current(void) = 0;
+			virtual void show(void) = 0;
+			virtual void hide(void) = 0;
+			virtual void close(void) = 0;
 	};
 	
 	class Backend {
 		public:
 			virtual ~Backend(void) = default;
+			
+			virtual std::unique_ptr<Window> create_window(int width, int height, std::string &title) = 0;
+			virtual void quit(void) = 0;
 	};
 	
 	bool is_sdl3_backend_available(void);
