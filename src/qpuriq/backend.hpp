@@ -15,8 +15,8 @@
 **/
 
 #pragma once
-#include <memory>
-#include <string>
+#include "std.hpp"
+#include "event.hpp"
 
 namespace qpuriq::backend {
 	class Window {
@@ -28,12 +28,32 @@ namespace qpuriq::backend {
 			virtual void hide(void) = 0;
 			virtual void close(void) = 0;
 	};
-	
+
 	class Backend {
 		public:
 			virtual ~Backend(void) = default;
 			
-			virtual std::unique_ptr<Window> create_window(int width, int height, std::string &title) = 0;
+			virtual std::unique_ptr<Window> create_window(int width, int height, string &title) = 0;
+
+			enum : int {
+				BackendNetStatusFailed = 0,
+				BackendNetStatusWaiting = 1,
+				BackendNetStatusSuccess = 2,
+			};
+
+			virtual void *net_resolve_hostname_alloc_and_resolve(string hostname) = 0;
+			virtual int net_resolve_hostname_get_status(void *p) = 0;
+			virtual void net_resolve_hostname_free(void *p) = 0;
+
+			virtual void *net_tcp_client_create_and_connect(void *addr, int port) = 0;
+			virtual int net_tcp_client_get_connection_status(void *p) = 0;
+			virtual void net_tcp_client_free(void *p) = 0;
+
+			virtual void register_event(Event &event) = 0;
+			virtual void unregister_event(Event event) = 0;
+			
+			virtual bool update_events(void) = 0;
+
 			virtual void quit(void) = 0;
 	};
 	

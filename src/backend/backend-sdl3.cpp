@@ -65,10 +65,44 @@ namespace qpuriq::backend {
 	class BackendSDL : public Backend {
 		private:
 			bool valid = false;
+			SDL_Time time;
+
+			// used for "generating" unique events IDs.
+			unsigned long event_id = 0l;
+			std::unordered_map<unsigned long, Event> events;
 		
 		public:
 			BackendSDL(void) {
-				if((valid = SDL_Init(SDL_INIT_VIDEO | SDL_INIT_EVENTS)) == false) {
+				event_id = 0l;
+				events.clear();
+				valid = true;
+
+				if(valid && (valid == SDL_SetAppMetadata("SeaTraveler", "0.1.0a1", "org.chimoteam.seatraveler")) == false) {
+					std::fprintf(stderr, "Couldn't set app metadata.\n");
+					return;
+				}
+
+				if(valid && (valid == SDL_SetAppMetadataProperty(SDL_PROP_APP_METADATA_CREATOR_STRING, "Rivest Osz")) == false) {
+					std::fprintf(stderr, "Couldn't set app metadata.\n");
+					return;
+				}
+
+				if(valid && (valid == SDL_SetAppMetadataProperty(SDL_PROP_APP_METADATA_COPYRIGHT_STRING, "Copyright (C) 2026 Rivest Osz")) == false) {
+					std::fprintf(stderr, "Couldn't set app metadata.\n");
+					return;
+				}
+
+				if(valid && (valid == SDL_SetAppMetadataProperty(SDL_PROP_APP_METADATA_URL_STRING, "https://chimoteam.eu.org/")) == false) {
+					std::fprintf(stderr, "Couldn't set app metadata.\n");
+					return;
+				}
+
+				if(valid && (valid == SDL_SetAppMetadataProperty(SDL_PROP_APP_METADATA_TYPE_STRING, "application")) == false) {
+					std::fprintf(stderr, "Couldn't set app metadata.\n");
+					return;
+				}
+
+				if(valid && (valid = SDL_Init(SDL_INIT_VIDEO | SDL_INIT_AUDIO | SDL_INIT_EVENTS)) == false) {
 					std::fprintf(stderr, "Couldn't initialize SDL.\n");
 					return;
 				}
@@ -82,14 +116,135 @@ namespace qpuriq::backend {
 					std::fprintf(stderr, "Couldn't initialize SDL_ttf.\n");
 					return;
 				}
+
+				if(valid && (valid = SDL_GetCurrentTime(&time)) == false) {
+					std::fprintf(stderr, "Couldn't get current time.\n");
+					return;
+				}
 			};
 			
 			~BackendSDL(void) {
 				quit();
 			};
+
+			void *net_resolve_hostname_alloc_and_resolve(string hostname) {
+				const char *nstr_hostname = hostname.c_str();
+				NET_Address *addr = NET_ResolveHostname(nstr_hostname);
+				return (void *)addr;
+			};
+
+			int net_resolve_hostname_get_status(void *p) {
+				NET_Address *addr = (NET_Address *)p;
+				if(addr == nullptr)
+					return BackendNetStatusFailed;
+
+				NET_Status status = NET_GetAddressStatus(addr);
+				switch(status) {
+					case NET_WAITING:
+						return BackendNetStatusWaiting;
+					case NET_SUCCESS:
+						return BackendNetStatusSuccess;
+					case NET_FAILURE:
+					default:
+						return BackendNetStatusFailed;
+				};
+			};
+
+			void net_resolve_hostname_free(void *p) {
+				NET_Address *addr = (NET_Address *)p;
+				if(addr == nullptr)
+					return;
+
+				NET_UnrefAddress(addr);
+			};
+
+			void *net_tcp_client_create_and_connect(void *addr_voidptr, int port) {
+				NET_Address *addr = (NET_Address *)addr_voidptr;
+				if(addr == nullptr)
+					return nullptr;
+				if(port < 0 || port > 0xffff)
+					return nullptr;
+
+				NET_StreamSocket *socket = NET_CreateClient(addr, port, 0);
+				return (void *)socket;
+			};
+
+			int net_tcp_client_get_connection_status(void *p) {
+				NET_StreamSocket *socket = (NET_StreamSocket *)p;
+				if(socket == nullptr)
+					return BackendNetStatusFailed;
+				
+				NET_Status status = NET_GetConnectionStatus(socket);
+				switch(status) {
+					case NET_WAITING:
+						return BackendNetStatusWaiting;
+					case NET_SUCCESS:
+						return BackendNetStatusSuccess;
+					case NET_FAILURE:
+					default:
+						return BackendNetStatusFailed;
+				};
+			};
+
+			void net_tcp_client_free(void *p) {
+				(void)p;
+			};
 			
 			std::unique_ptr<Window> create_window(int width, int height, std::string &title) {
 				return std::make_unique<BackendWindowSDL>(width, height, title);
+			};
+
+			void register_event(Event &event) {
+				while(events.find(event_id) != events.cend())
+					event_id++;
+
+				event.set_unique_id(event_id);
+				events.insert_or_assign(event_id, event);
+			};
+
+			void unregister_event(Event event) {
+				unsigned long id = event.get_unique_id();
+
+				if(events.find(id) == events.cend())
+					return;
+				
+				events.erase(id);
+			};
+
+			bool update_events(void) {
+				SDL_Time old_time = time;
+				(void)SDL_GetCurrentTime(&time);
+
+				double dt = (time - old_time) / 1'000'000'000.0;
+
+				for(std::pair<unsigned long, Event> pair : events) {
+					if(pair.second.is_valid() == false) {
+						unregister_event(pair.second);
+						continue;
+					}
+
+					if(pair.second.get_period_in_ms() < 0l) {
+						pair.second.execute();
+						unregister_event(pair.second);
+						continue;
+					}
+
+					if(pair.second.get_period_in_ms() == 0l) {
+						pair.second.execute();
+						continue;
+					}
+
+					double t = pair.second.get_delta_time() + dt;
+
+					if((long)(t * 1000.0) >= pair.second.get_period_in_ms()) {
+						t -= (double)pair.second.get_period_in_ms() / 1000.0;
+						pair.second.execute();
+					}
+
+					pair.second.set_delta_time(t);
+				};
+
+				return true;
 			};
 			
 			void quit(void) {

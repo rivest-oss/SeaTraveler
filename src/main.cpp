@@ -27,12 +27,8 @@ int main(int argc, const char **argv) {
 		std::fprintf(stderr, "Couldn't find an available backend, exiting...\n");
 		return 1;
 	}
-	
-	std::string title = "SeaTraveler";
-	std::unique_ptr<qpuriq::backend::Window> main_window = backend->create_window(640, 360, title);
-	
-	main_window->show();
-	main_window->close();
+
+	while(backend->update_events()) {};
 	
 	backend->quit();
 	
