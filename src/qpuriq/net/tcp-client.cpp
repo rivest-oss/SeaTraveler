@@ -15,8 +15,66 @@
 **/
 
 #include "tcp-client.hpp"
+#include "../backend.hpp"
+#include "../event.hpp"
 
 namespace qpuriq::net {
+	void tcp_client_connect_cb(backend::Event &event) {
+		TCPClient *tcp_client = (TCPClient *)event.get_user_p3();
+
+		// first part: address resolution
+		if(event.get_user_i0() == 0) {
+			int rc = backend::get_current_backend()->net_resolve_hostname_get_status(event.get_user_p0());
+
+			if(rc == backend::Backend::BackendNetStatusWaiting)
+				return;
+
+			if(rc == backend::Backend::BackendNetStatusSuccess) {
+				event.set_user_i0(1);
+				event.set_user_p1(backend::get_current_backend()->net_tcp_client_create_and_connect(event.get_user_p0(), event.get_user_i1()));
+				return;
+			}
+
+			// else fail
+			backend::get_current_backend()->unregister_event(event);
+			backend::get_current_backend()->net_resolve_hostname_free(event.get_user_p0());
+
+			TCPClient::error_callback_t err_cb = tcp_client->get_callback_error();
+			if(err_cb)
+				err_cb(*tcp_client, 123);
+
+			return;
+		}
+
+		// second part: connection
+		int rc = backend::get_current_backend()->net_tcp_client_get_connection_status(event.get_user_p1());
+
+		if(rc == backend::Backend::BackendNetStatusWaiting)
+			return;
+
+		if(rc == backend::Backend::BackendNetStatusSuccess) {
+			backend::get_current_backend()->net_resolve_hostname_free(event.get_user_p0());
+			backend::get_current_backend()->unregister_event(event);
+			TCPClient::connect_callback_t connected_cb = tcp_client->get_callback_connect();
+
+			if(connected_cb)
+				connected_cb(*tcp_client);
+			
+			return;
+		}
+
+		// else fail
+		backend::get_current_backend()->unregister_event(event);
+		backend::get_current_backend()->net_resolve_hostname_free(event.get_user_p0());
+		backend::get_current_backend()->net_tcp_client_free(event.get_user_p1());
+
+		TCPClient::error_callback_t err_cb = tcp_client->get_callback_error();
+		if(err_cb)
+			err_cb(*tcp_client, 456);
+		
+		return;
+	};
+
 	TCPClient::TCPClient(void) {};
 
 	TCPClient::TCPClient(tcp_client_parameters_t setup) {
@@ -50,7 +108,15 @@ namespace qpuriq::net {
 	};
 
 	void TCPClient::connect(string hostname, int port) {
-		// [TODO]
+		backend::Event event;
+		event.set_period_in_ms(5);
+		event.set_user_i0(0);
+		event.set_user_i1(port);
+		event.set_user_p0(backend::get_current_backend()->net_resolve_hostname_alloc_and_resolve(hostname));
+		event.set_user_p3((void *)this);
+		event.set_callback(tcp_client_connect_cb);
+
+		backend::get_current_backend()->register_event(event);
 	};
 
 	void *TCPClient::get_user(void) {

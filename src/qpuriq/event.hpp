@@ -15,6 +15,7 @@
 **/
 
 #pragma once
+#include "std.hpp"
 
 namespace qpuriq::backend {
 	class Event {
@@ -24,12 +25,14 @@ namespace qpuriq::backend {
 		private:
 			unsigned long valid = 0;
 			callback_t callback = nullptr;
-			void *user_p0 = nullptr;
-			void *user_p1 = nullptr;
 			long period_ms = -1;
 			unsigned long unique_id;
 			unsigned long destroyable;
 			double delta_time = 0.0;
+
+			void *user_p0 = nullptr, *user_p1 = nullptr, *user_p2 = nullptr, *user_p3 = nullptr;
+			string user_s0, user_s1;
+			long user_i0 = 0, user_i1 = 0;
 
 		public:
 			Event(void);
@@ -54,8 +57,20 @@ namespace qpuriq::backend {
 
 			void *get_user_p0(void);
 			void *get_user_p1(void);
+			void *get_user_p2(void);
+			void *get_user_p3(void);
+			string get_user_s0(void);
+			string get_user_s1(void);
+			long get_user_i0(void);
+			long get_user_i1(void);
 
 			void set_user_p0(void *v);
 			void set_user_p1(void *v);
+			void set_user_p2(void *v);
+			void set_user_p3(void *v);
+			void set_user_s0(string v);
+			void set_user_s1(string v);
+			void set_user_i0(long v);
+			void set_user_i1(long v);
 	};
 };

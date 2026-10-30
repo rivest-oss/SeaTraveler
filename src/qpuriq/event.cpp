@@ -73,16 +73,50 @@ namespace qpuriq::backend {
 	void *Event::get_user_p0(void) {
 		return user_p0;
 	};
-
 	void *Event::get_user_p1(void) {
 		return user_p1;
+	};
+	void *Event::get_user_p2(void) {
+		return user_p2;
+	};
+	void *Event::get_user_p3(void) {
+		return user_p3;
+	};
+	string Event::get_user_s0(void) {
+		return user_s0;
+	};
+	string Event::get_user_s1(void) {
+		return user_s1;
+	};
+	long Event::get_user_i0(void) {
+		return user_i0;
+	};
+	long Event::get_user_i1(void) {
+		return user_i1;
 	};
 
 	void Event::set_user_p0(void *v) {
 		user_p0 = v;
 	};
-
 	void Event::set_user_p1(void *v) {
 		user_p1 = v;
+	};
+	void Event::set_user_p2(void *v) {
+		user_p2 = v;
+	};
+	void Event::set_user_p3(void *v) {
+		user_p3 = v;
+	};
+	void Event::set_user_s0(string v) {
+		user_s0 = v;
+	};
+	void Event::set_user_s1(string v) {
+		user_s1 = v;
+	};
+	void Event::set_user_i0(long v) {
+		user_i0 = v;
+	};
+	void Event::set_user_i1(long v) {
+		user_i1 = v;
 	};
 };

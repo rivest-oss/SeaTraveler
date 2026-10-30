@@ -33,7 +33,7 @@ namespace qpuriq::backend {
 		public:
 			virtual ~Backend(void) = default;
 			
-			virtual std::unique_ptr<Window> create_window(int width, int height, string &title) = 0;
+			virtual std::shared_ptr<Window> create_window(int width, int height, string &title) = 0;
 
 			enum : int {
 				BackendNetStatusFailed = 0,
@@ -58,5 +58,8 @@ namespace qpuriq::backend {
 	};
 	
 	bool is_sdl3_backend_available(void);
-	std::unique_ptr<Backend> make_backend_sdl3(void);
+	std::shared_ptr<Backend> make_backend_sdl3(void);
+
+	std::shared_ptr<Backend> get_current_backend(void);
+	void set_current_backend(std::shared_ptr<Backend> backend);
 };

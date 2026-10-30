@@ -190,8 +190,8 @@ namespace qpuriq::backend {
 				(void)p;
 			};
 			
-			std::unique_ptr<Window> create_window(int width, int height, std::string &title) {
-				return std::make_unique<BackendWindowSDL>(width, height, title);
+			std::shared_ptr<Window> create_window(int width, int height, std::string &title) {
+				return std::make_shared<BackendWindowSDL>(width, height, title);
 			};
 
 			void register_event(Event &event) {
@@ -262,7 +262,7 @@ namespace qpuriq::backend {
 		#endif
 	};
 	
-	std::unique_ptr<Backend> make_backend_sdl3(void) {
+	std::shared_ptr<Backend> make_backend_sdl3(void) {
 		return std::make_unique<BackendSDL>();
 	};
 };
