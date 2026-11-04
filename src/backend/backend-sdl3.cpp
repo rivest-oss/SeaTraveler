@@ -215,33 +215,35 @@ namespace qpuriq::backend {
 				SDL_Time old_time = time;
 				(void)SDL_GetCurrentTime(&time);
 
-				double dt = (time - old_time) / 1'000'000'000.0;
+				double dt = (time - old_time) / 1e9;
 
 				for(std::pair<unsigned long, Event> pair : events) {
-					if(pair.second.is_valid() == false) {
-						unregister_event(pair.second);
+					Event &event = events.at(pair.first);
+					
+					if(event.is_valid() == false) {
+						unregister_event(event);
 						continue;
 					}
 
-					if(pair.second.get_period_in_ms() < 0l) {
-						pair.second.execute();
-						unregister_event(pair.second);
+					if(event.get_period_in_ms() < 0l) {
+						event.execute();
+						unregister_event(event);
 						continue;
 					}
 
-					if(pair.second.get_period_in_ms() == 0l) {
-						pair.second.execute();
+					if(event.get_period_in_ms() == 0l) {
+						event.execute();
 						continue;
 					}
 
-					double t = pair.second.get_delta_time() + dt;
+					double t = event.get_delta_time() + dt;
 
-					if((long)(t * 1000.0) >= pair.second.get_period_in_ms()) {
-						t -= (double)pair.second.get_period_in_ms() / 1000.0;
-						pair.second.execute();
+					if((long)(t * 1000.0) >= event.get_period_in_ms()) {
+						t -= (double)event.get_period_in_ms() / 1000.0;
+						event.execute();
 					}
 
-					pair.second.set_delta_time(t);
+					event.set_delta_time(t);
 				};
 
 				return true;
