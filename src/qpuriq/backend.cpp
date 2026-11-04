@@ -24,6 +24,7 @@ namespace qpuriq::backend {
 	};
 
 	void set_current_backend(std::shared_ptr<Backend> backend) {
-		curr_backend = backend;
+		if(backend != nullptr)
+			curr_backend = backend;
 	};
 };

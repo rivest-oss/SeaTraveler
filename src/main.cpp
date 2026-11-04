@@ -19,17 +19,15 @@
 #include "qpuriq/net/tcp-client.hpp"
 
 int main(int argc, const char **argv) {
-	std::shared_ptr<qpuriq::backend::Backend> backend;
-	
-	if(backend == nullptr && qpuriq::backend::is_sdl3_backend_available())
-		backend = qpuriq::backend::make_backend_sdl3();
-	
-	if(backend == nullptr) {
+	bool ok = false;
+
+	if(qpuriq::backend::is_sdl3_backend_available())
+		ok = qpuriq::backend::make_backend_sdl3();
+
+	if(ok == false) {
 		std::fprintf(stderr, "Couldn't find an available backend, exiting...\n");
 		return 1;
 	}
-
-	qpuriq::backend::set_current_backend(backend);
 
 	qpuriq::net::TCPClient tcp_client(qpuriq::net::TCPClient::tcp_client_parameters_t {
 		.hostname = "1.1.1.1",
@@ -46,9 +44,12 @@ int main(int argc, const char **argv) {
 		.on_data = nullptr,
 	});
 
-	while(backend->update_events()) {};
-	
-	backend->quit();
-	
-	return 0;
+	while(true) {
+		int rc = qpuriq::backend::get_current_backend()->update_events();
+		if(rc == 0)
+			continue;
+
+		qpuriq::backend::get_current_backend()->quit();
+		std::exit(rc < 0 ? 1 : 0);
+	};
 };

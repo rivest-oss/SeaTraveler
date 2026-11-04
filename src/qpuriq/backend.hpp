@@ -32,6 +32,7 @@ namespace qpuriq::backend {
 	class Backend {
 		public:
 			virtual ~Backend(void) = default;
+			virtual bool is_valid(void) = 0;
 			
 			virtual std::shared_ptr<Window> create_window(int width, int height, string &title) = 0;
 
@@ -52,13 +53,16 @@ namespace qpuriq::backend {
 			virtual void register_event(Event &event) = 0;
 			virtual void unregister_event(Event event) = 0;
 			
-			virtual bool update_events(void) = 0;
+			virtual int update_events(void) = 0;
 
+			virtual void flag_quit(bool fatal) = 0;
 			virtual void quit(void) = 0;
 	};
 	
 	bool is_sdl3_backend_available(void);
-	std::shared_ptr<Backend> make_backend_sdl3(void);
+
+	// fails with (false).
+	bool make_backend_sdl3(void);
 
 	std::shared_ptr<Backend> get_current_backend(void);
 	void set_current_backend(std::shared_ptr<Backend> backend);

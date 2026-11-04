@@ -70,6 +70,8 @@ namespace qpuriq::backend {
 			// used for "generating" unique events IDs.
 			unsigned long event_id = 0l;
 			std::unordered_map<unsigned long, Event> events;
+
+			int flag_quit_code = 0;
 		
 		public:
 			BackendSDL(void) {
@@ -121,6 +123,10 @@ namespace qpuriq::backend {
 					std::fprintf(stderr, "Couldn't get current time.\n");
 					return;
 				}
+			};
+
+			bool is_valid(void) {
+				return valid;
 			};
 			
 			~BackendSDL(void) {
@@ -211,23 +217,27 @@ namespace qpuriq::backend {
 				events.erase(id);
 			};
 
-			bool update_events(void) {
+			int update_events(void) {
+				int should_quit = flag_quit_code;
+
 				SDL_Time old_time = time;
 				(void)SDL_GetCurrentTime(&time);
 
 				double dt = (time - old_time) / 1e9;
+				
+				std::vector<unsigned long> flagged_deletion;
 
 				for(std::pair<unsigned long, Event> pair : events) {
 					Event &event = events.at(pair.first);
 					
 					if(event.is_valid() == false) {
-						unregister_event(event);
+						flagged_deletion.push_back(event.get_unique_id());
 						continue;
 					}
 
 					if(event.get_period_in_ms() < 0l) {
 						event.execute();
-						unregister_event(event);
+						flagged_deletion.push_back(event.get_unique_id());
 						continue;
 					}
 
@@ -243,10 +253,20 @@ namespace qpuriq::backend {
 						event.execute();
 					}
 
-					event.set_delta_time(t);
+					if(event.is_valid() == false)
+						flagged_deletion.push_back(event.get_unique_id());
+					else
+						event.set_delta_time(t);
 				};
+				
+				for(unsigned long id : flagged_deletion)
+					events.erase(id);
 
-				return true;
+				return should_quit;
+			};
+
+			void flag_quit(bool fatal) {
+				flag_quit_code = fatal ? -1 : 1;
 			};
 			
 			void quit(void) {
@@ -264,7 +284,12 @@ namespace qpuriq::backend {
 		#endif
 	};
 	
-	std::shared_ptr<Backend> make_backend_sdl3(void) {
-		return std::make_unique<BackendSDL>();
+	bool make_backend_sdl3(void) {
+		std::shared_ptr<Backend> backend = std::make_shared<BackendSDL>();
+		if(backend == nullptr || backend->is_valid() == false)
+			return false;
+
+		qpuriq::backend::set_current_backend(backend);
+		return true;
 	};
 };

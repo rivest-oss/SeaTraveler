@@ -36,7 +36,7 @@ namespace qpuriq::net {
 			}
 
 			// else fail
-			backend::get_current_backend()->unregister_event(event);
+			event.invalidate();
 			backend::get_current_backend()->net_resolve_hostname_free(event.get_user_p0());
 
 			TCPClient::error_callback_t err_cb = tcp_client->get_callback_error();
@@ -54,7 +54,7 @@ namespace qpuriq::net {
 
 		if(rc == backend::Backend::BackendNetStatusSuccess) {
 			backend::get_current_backend()->net_resolve_hostname_free(event.get_user_p0());
-			backend::get_current_backend()->unregister_event(event);
+			event.invalidate();
 			TCPClient::connect_callback_t connected_cb = tcp_client->get_callback_connect();
 
 			if(connected_cb)
@@ -64,7 +64,7 @@ namespace qpuriq::net {
 		}
 
 		// else fail
-		backend::get_current_backend()->unregister_event(event);
+		event.invalidate();
 		backend::get_current_backend()->net_resolve_hostname_free(event.get_user_p0());
 		backend::get_current_backend()->net_tcp_client_free(event.get_user_p1());
 
