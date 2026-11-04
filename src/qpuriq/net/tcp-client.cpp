@@ -14,11 +14,51 @@
 ** along with this program.  If not, see <https://www.gnu.org/licenses/>.
 **/
 
+#include <cstdio>
 #include "tcp-client.hpp"
 #include "../backend.hpp"
 #include "../event.hpp"
 
 namespace qpuriq::net {
+	void tcp_client_update_cb(backend::Event &event) {
+		void *socket = event.get_user_p1();
+		TCPClient *tcp_client = (TCPClient *)event.get_user_p3();
+		std::printf("SOCKET D: %p\n", socket);
+
+		TCPClient::data_callback_t data_cb = tcp_client->get_callback_data();
+		TCPClient::error_callback_t err_cb = tcp_client->get_callback_error();
+		
+		int rc = backend::get_current_backend()->net_tcp_client_get_connection_status(socket);
+		if(rc == backend::Backend::BackendNetStatusFailed) {
+			event.invalidate();
+			backend::get_current_backend()->net_tcp_client_free(event.get_user_p1());
+			if(err_cb)
+				err_cb(*tcp_client, __LINE__);
+
+			return;
+		}
+		
+		u8 buf[256];
+		const int buflen = 256;
+		rc = backend::get_current_backend()->net_tcp_client_read(socket, buf, buflen);
+
+		if(rc < 0) {
+			event.invalidate();
+			backend::get_current_backend()->net_tcp_client_free(event.get_user_p1());
+			if(err_cb)
+				err_cb(*tcp_client, __LINE__);
+
+			return;
+		}
+
+		std::vector<u8> buff_v;
+		for(int i = 0; i < rc; i++)
+			buff_v.push_back(buf[i]);
+		
+		if(data_cb)
+			data_cb(*tcp_client, buff_v, rc);
+	};
+
 	void tcp_client_connect_cb(backend::Event &event) {
 		TCPClient *tcp_client = (TCPClient *)event.get_user_p3();
 
@@ -41,7 +81,7 @@ namespace qpuriq::net {
 
 			TCPClient::error_callback_t err_cb = tcp_client->get_callback_error();
 			if(err_cb)
-				err_cb(*tcp_client, 123);
+				err_cb(*tcp_client, __LINE__);
 
 			return;
 		}
@@ -59,6 +99,14 @@ namespace qpuriq::net {
 
 			if(connected_cb)
 				connected_cb(*tcp_client);
+
+			backend::Event event;
+			event.set_period_in_ms(1);
+			event.set_user_p3((void *)tcp_client);
+			event.set_callback(tcp_client_update_cb);
+			std::printf("SOCKET C: %p\n", event.get_user_p1());
+
+			backend::get_current_backend()->register_event(event);
 			
 			return;
 		}

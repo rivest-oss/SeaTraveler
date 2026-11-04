@@ -30,7 +30,7 @@ int main(int argc, const char **argv) {
 	}
 
 	qpuriq::net::TCPClient tcp_client(qpuriq::net::TCPClient::tcp_client_parameters_t {
-		.hostname = "1.1.1.1",
+		.hostname = "http.badssl.com",
 		.port = 80,
 		.user = nullptr,
 		.timeout_ms = 60000,
@@ -41,7 +41,10 @@ int main(int argc, const char **argv) {
 		.on_error = [](qpuriq::net::TCPClient &client, int err) -> void {
 			std::printf("TCPCLIENT ERROR! %i\n", err);
 		},
-		.on_data = nullptr,
+		.on_data = [](qpuriq::net::TCPClient &client, std::vector<qpuriq::u8> buff, std::size_t buff_len) -> void {
+			buff.push_back('\0');
+			std::printf("TCPCLIENT DATA: %s\n", (char *)buff.data());
+		},
 	});
 
 	while(true) {

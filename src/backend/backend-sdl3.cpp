@@ -71,6 +71,8 @@ namespace qpuriq::backend {
 			unsigned long event_id = 0l;
 			std::unordered_map<unsigned long, Event> events;
 
+			std::vector<Event> register_queue;
+
 			int flag_quit_code = 0;
 		
 		public:
@@ -78,6 +80,8 @@ namespace qpuriq::backend {
 				event_id = 0l;
 				events.clear();
 				valid = true;
+				flag_quit_code = 0;
+				register_queue.clear();
 
 				if(valid && (valid == SDL_SetAppMetadata("SeaTraveler", "0.1.0a1", "org.chimoteam.seatraveler")) == false) {
 					std::fprintf(stderr, "Couldn't set app metadata.\n");
@@ -193,7 +197,19 @@ namespace qpuriq::backend {
 			};
 
 			void net_tcp_client_free(void *p) {
-				(void)p;
+				NET_StreamSocket *socket = (NET_StreamSocket *)p;
+				if(socket == nullptr)
+					return;
+
+				NET_DestroyStreamSocket(socket);
+			};
+
+			int net_tcp_client_read(void *sock, void *buf, int buflen) {
+				NET_StreamSocket *socket = (NET_StreamSocket *)sock;
+				if(socket == nullptr)
+					return -1;
+
+				return NET_ReadFromStreamSocket(socket, buf, buflen);
 			};
 			
 			std::shared_ptr<Window> create_window(int width, int height, std::string &title) {
@@ -205,7 +221,7 @@ namespace qpuriq::backend {
 					event_id++;
 
 				event.set_unique_id(event_id);
-				events.insert_or_assign(event_id, event);
+				register_queue.push_back(event);
 			};
 
 			void unregister_event(Event event) {
@@ -214,7 +230,7 @@ namespace qpuriq::backend {
 				if(events.find(id) == events.cend())
 					return;
 				
-				events.erase(id);
+				events.at(id).invalidate();
 			};
 
 			int update_events(void) {
@@ -224,6 +240,11 @@ namespace qpuriq::backend {
 				(void)SDL_GetCurrentTime(&time);
 
 				double dt = (time - old_time) / 1e9;
+
+				for(Event event : register_queue)
+					events.insert_or_assign(event.get_unique_id(), event);
+
+				register_queue.clear();
 				
 				std::vector<unsigned long> flagged_deletion;
 
