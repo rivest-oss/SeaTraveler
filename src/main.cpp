@@ -43,7 +43,7 @@ int main(int argc, const char **argv) {
 		},
 		.on_data = [](qpuriq::net::TCPClient &client, std::vector<qpuriq::u8> buff, std::size_t buff_len) -> void {
 			buff.push_back('\0');
-			std::printf("TCPCLIENT DATA: %s\n", (char *)buff.data());
+			std::printf("TCPCLIENT DATA (%i): %s\n", (int)buff_len, (char *)buff.data());
 		},
 	});
 

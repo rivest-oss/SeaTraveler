@@ -21,28 +21,30 @@
 
 namespace qpuriq::net {
 	void tcp_client_update_cb(backend::Event &event) {
-		void *socket = event.get_user_p1();
-		TCPClient *tcp_client = (TCPClient *)event.get_user_p3();
-		std::printf("SOCKET D: %p\n", socket);
+		void *sock = event.get_user_p1();
+		TCPClient *tcp_client = (TCPClient *)event.get_user_p0();
 
 		TCPClient::data_callback_t data_cb = tcp_client->get_callback_data();
 		TCPClient::error_callback_t err_cb = tcp_client->get_callback_error();
 		
-		int rc = backend::get_current_backend()->net_tcp_client_get_connection_status(socket);
-		if(rc == backend::Backend::BackendNetStatusFailed) {
-			event.invalidate();
-			backend::get_current_backend()->net_tcp_client_free(event.get_user_p1());
-			if(err_cb)
-				err_cb(*tcp_client, __LINE__);
-
-			return;
-		}
-		
 		u8 buf[256];
 		const int buflen = 256;
-		rc = backend::get_current_backend()->net_tcp_client_read(socket, buf, buflen);
+		int read_rc = backend::get_current_backend()->net_tcp_client_read(sock, buf, buflen);
 
-		if(rc < 0) {
+		std::printf("[read RC] %i\n", read_rc);
+
+		int conn_rc = backend::get_current_backend()->net_tcp_client_get_connection_status(sock);
+
+		if(read_rc == 0 && conn_rc == backend::Backend::BackendNetStatusFailed) {
+			event.invalidate();
+			backend::get_current_backend()->net_tcp_client_free(event.get_user_p1());
+
+			std::printf("TCPCLIENT CIAO\n");
+
+			return;
+		}
+
+		if(read_rc < 0) {
 			event.invalidate();
 			backend::get_current_backend()->net_tcp_client_free(event.get_user_p1());
 			if(err_cb)
@@ -51,19 +53,22 @@ namespace qpuriq::net {
 			return;
 		}
 
+		std::printf("[conn RC] %i\n", conn_rc);
+
 		std::vector<u8> buff_v;
-		for(int i = 0; i < rc; i++)
+		for(int i = 0; i < read_rc; i++)
 			buff_v.push_back(buf[i]);
 		
 		if(data_cb)
-			data_cb(*tcp_client, buff_v, rc);
+			data_cb(*tcp_client, buff_v, read_rc);
 	};
 
 	void tcp_client_connect_cb(backend::Event &event) {
 		TCPClient *tcp_client = (TCPClient *)event.get_user_p3();
+		TCPClient::error_callback_t err_cb = tcp_client->get_callback_error();
 
 		// first part: address resolution
-		if(event.get_user_i0() == 0) {
+		if(event.get_user_p1() == nullptr) {
 			int rc = backend::get_current_backend()->net_resolve_hostname_get_status(event.get_user_p0());
 
 			if(rc == backend::Backend::BackendNetStatusWaiting)
@@ -71,7 +76,18 @@ namespace qpuriq::net {
 
 			if(rc == backend::Backend::BackendNetStatusSuccess) {
 				event.set_user_i0(1);
-				event.set_user_p1(backend::get_current_backend()->net_tcp_client_create_and_connect(event.get_user_p0(), event.get_user_i1()));
+
+				void *sock = backend::get_current_backend()->net_tcp_client_create_and_connect(event.get_user_p0(), event.get_user_i1());
+				if(sock == nullptr) {
+					event.invalidate();
+					backend::get_current_backend()->net_resolve_hostname_free(event.get_user_p0());
+					if(err_cb)
+						err_cb(*tcp_client, __LINE__);
+				}
+
+				event.set_user_p1(sock);
+				std::printf("SOCK A¹: %p\n", sock);
+				std::printf("SOCK A²: %p\n", event.get_user_p1());
 				return;
 			}
 
@@ -79,7 +95,6 @@ namespace qpuriq::net {
 			event.invalidate();
 			backend::get_current_backend()->net_resolve_hostname_free(event.get_user_p0());
 
-			TCPClient::error_callback_t err_cb = tcp_client->get_callback_error();
 			if(err_cb)
 				err_cb(*tcp_client, __LINE__);
 
@@ -93,6 +108,8 @@ namespace qpuriq::net {
 			return;
 
 		if(rc == backend::Backend::BackendNetStatusSuccess) {
+			void *sock = backend::get_current_backend()->net_tcp_client_create_and_connect(event.get_user_p0(), event.get_user_i1());
+
 			backend::get_current_backend()->net_resolve_hostname_free(event.get_user_p0());
 			event.invalidate();
 			TCPClient::connect_callback_t connected_cb = tcp_client->get_callback_connect();
@@ -100,13 +117,14 @@ namespace qpuriq::net {
 			if(connected_cb)
 				connected_cb(*tcp_client);
 
-			backend::Event event;
-			event.set_period_in_ms(1);
-			event.set_user_p3((void *)tcp_client);
-			event.set_callback(tcp_client_update_cb);
-			std::printf("SOCKET C: %p\n", event.get_user_p1());
+			backend::Event e;
+			e.set_period_in_ms(1);
+			e.set_user_p0((void *)tcp_client);
+			e.set_user_p1(sock);
+			e.set_callback(tcp_client_update_cb);
+			std::printf("SOCKET C: %p\n", sock);
 
-			backend::get_current_backend()->register_event(event);
+			backend::get_current_backend()->register_event(e);
 			
 			return;
 		}
@@ -116,7 +134,6 @@ namespace qpuriq::net {
 		backend::get_current_backend()->net_resolve_hostname_free(event.get_user_p0());
 		backend::get_current_backend()->net_tcp_client_free(event.get_user_p1());
 
-		TCPClient::error_callback_t err_cb = tcp_client->get_callback_error();
 		if(err_cb)
 			err_cb(*tcp_client, 456);
 		
@@ -158,9 +175,9 @@ namespace qpuriq::net {
 	void TCPClient::connect(string hostname, int port) {
 		backend::Event event;
 		event.set_period_in_ms(5);
-		event.set_user_i0(0);
 		event.set_user_i1(port);
 		event.set_user_p0(backend::get_current_backend()->net_resolve_hostname_alloc_and_resolve(hostname));
+		event.set_user_p1(nullptr);
 		event.set_user_p3((void *)this);
 		event.set_callback(tcp_client_connect_cb);
 
