@@ -37,9 +37,9 @@ namespace qpuriq::backend {
 			virtual std::shared_ptr<Window> create_window(int width, int height, string &title) = 0;
 
 			enum : int {
-				BackendNetStatusFailed = 0,
-				BackendNetStatusWaiting = 1,
-				BackendNetStatusSuccess = 2,
+				BackendNetStatusFailed = -1,
+				BackendNetStatusWaiting = 0,
+				BackendNetStatusSuccess = 1,
 			};
 
 			virtual void *net_resolve_hostname_alloc_and_resolve(string hostname) = 0;
@@ -51,6 +51,7 @@ namespace qpuriq::backend {
 			virtual void net_tcp_client_free(void *p) = 0;
 
 			virtual int net_tcp_client_read(void *sock, void *buf, int buflen) = 0;
+			virtual int net_tcp_client_write(void *sock, const void *buf, int buflen) = 0;
 
 			virtual void register_event(Event &event) = 0;
 			virtual void unregister_event(Event event) = 0;

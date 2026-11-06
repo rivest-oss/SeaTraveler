@@ -211,6 +211,14 @@ namespace qpuriq::backend {
 
 				return NET_ReadFromStreamSocket(socket, buf, buflen);
 			};
+
+			int net_tcp_client_write(void *sock, const void *buf, int buflen) {
+				NET_StreamSocket *socket = (NET_StreamSocket *)sock;
+				if(socket == nullptr)
+					return -1;
+
+				return NET_WriteToStreamSocket(socket, buf, buflen) ? 0 : -1;
+			};
 			
 			std::shared_ptr<Window> create_window(int width, int height, std::string &title) {
 				return std::make_shared<BackendWindowSDL>(width, height, title);

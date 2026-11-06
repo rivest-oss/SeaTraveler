@@ -37,13 +37,29 @@ int main(int argc, const char **argv) {
 
 		.on_connect = [](qpuriq::net::TCPClient &client) -> void {
 			std::printf("TCPCLIENT CONNECTED!\n");
+
+			const char *s = ""
+				"GET / HTTP/1.1\r\n"
+				"Host: http.badssl.com\r\n"
+				"User-Agent: libhttp/1.0\r\n"
+				"Accept: */*\r\n"
+				"\r\n"
+				"";
+
+			std::size_t buff_len = 80;
+
+			const qpuriq::u8 *buff = (const qpuriq::u8 *)s;
+
+			std::printf("TCPCLIENT WRITE: %i\n", client.write(buff, buff_len));
 		},
 		.on_error = [](qpuriq::net::TCPClient &client, int err) -> void {
 			std::printf("TCPCLIENT ERROR! %i\n", err);
 		},
 		.on_data = [](qpuriq::net::TCPClient &client, std::vector<qpuriq::u8> buff, std::size_t buff_len) -> void {
-			buff.push_back('\0');
-			std::printf("TCPCLIENT DATA (%i): %s\n", (int)buff_len, (char *)buff.data());
+			if(buff_len > 0) {
+				buff.push_back('\0');
+				std::printf("TCPCLIENT DATA (%i): %s\n", (int)buff_len, (char *)buff.data());
+			}
 		},
 	});
 

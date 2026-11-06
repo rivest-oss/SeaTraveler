@@ -43,13 +43,16 @@ namespace qpuriq::net {
 			data_callback_t callback_data = nullptr;
 
 			void *resolved_hostname = nullptr;
-			void *socket = nullptr;
+			void *sock = nullptr;
 
 		public:
 			TCPClient(void);
 			TCPClient(tcp_client_parameters_t setup);
 
 			void *get_user(void);
+			void *internal_get_socket(void);
+			void internal_set_socket(void *p);
+
 			unsigned long get_timeout_ms(void);
 			connect_callback_t get_callback_connect(void);
 			error_callback_t get_callback_error(void);
@@ -62,5 +65,6 @@ namespace qpuriq::net {
 			void set_callback_data(data_callback_t f);
 
 			void connect(string hostname, int port);
+			int write(const u8 *buff, std::size_t buff_len);
 	};
 };
