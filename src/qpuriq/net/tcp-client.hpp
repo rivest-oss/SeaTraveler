@@ -68,5 +68,6 @@ namespace qpuriq::net {
 
 			void connect(string hostname, int port);
 			int write(const u8 *buff, std::size_t buff_len);
+			void close(void);
 	};
 };

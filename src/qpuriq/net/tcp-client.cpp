@@ -162,7 +162,7 @@ namespace qpuriq::net {
 
 			if(rc == backend::Backend::BackendNetStatusSuccess) {
 				tcp_client_obj->destroy_address();
-				
+
 				TCPClient::connect_callback_t conn_cb = client->get_callback_connect();
 				if(conn_cb)
 					conn_cb(*client);
@@ -224,30 +224,6 @@ namespace qpuriq::net {
 		connect(setup.hostname, setup.port);
 	};
 
-	void TCPClient::set_user(void *p) {
-		user = p;
-	};
-
-	void TCPClient::set_timeout_ms(unsigned long t) {
-		timeout_ms = t;
-	};
-
-	void TCPClient::set_callback_connect(TCPClient::connect_callback_t f) {
-		callback_connect = f;
-	};
-
-	void TCPClient::set_callback_error(TCPClient::error_callback_t f) {
-		callback_error = f;
-	};
-
-	void TCPClient::set_callback_data(TCPClient::data_callback_t f) {
-		callback_data = f;
-	};
-
-	void TCPClient::set_callback_close(close_callback_t f) {
-		callback_close = f;
-	};
-
 	void TCPClient::connect(string hostname, int port) {
 		tcp_client_obj_t *client_obj = (tcp_client_obj_t *)sock;
 		if(client_obj != nullptr) {
@@ -275,6 +251,12 @@ namespace qpuriq::net {
 		return backend::get_current_backend()->net_tcp_client_write(sock, buff, buff_len);
 	};
 
+	void TCPClient::close(void) {
+		tcp_client_obj_t *client_obj = (tcp_client_obj_t *)sock;
+		if(client_obj != nullptr)
+			client_obj->destroy_all();
+	};
+
 	void *TCPClient::get_user(void) {
 		return user;
 	};
@@ -297,5 +279,29 @@ namespace qpuriq::net {
 
 	TCPClient::close_callback_t TCPClient::get_callback_close(void) {
 		return callback_close;
+	};
+
+	void TCPClient::set_user(void *p) {
+		user = p;
+	};
+
+	void TCPClient::set_timeout_ms(unsigned long t) {
+		timeout_ms = t;
+	};
+
+	void TCPClient::set_callback_connect(TCPClient::connect_callback_t f) {
+		callback_connect = f;
+	};
+
+	void TCPClient::set_callback_error(TCPClient::error_callback_t f) {
+		callback_error = f;
+	};
+
+	void TCPClient::set_callback_data(TCPClient::data_callback_t f) {
+		callback_data = f;
+	};
+
+	void TCPClient::set_callback_close(close_callback_t f) {
+		callback_close = f;
 	};
 };
