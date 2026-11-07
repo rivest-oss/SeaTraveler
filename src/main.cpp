@@ -55,11 +55,18 @@ int main(int argc, const char **argv) {
 		.on_error = [](qpuriq::net::TCPClient &client, int err) -> void {
 			std::printf("TCPCLIENT ERROR! %i\n", err);
 		},
-		.on_data = [](qpuriq::net::TCPClient &client, std::vector<qpuriq::u8> buff, std::size_t buff_len) -> void {
-			if(buff_len > 0) {
-				buff.push_back('\0');
-				std::printf("TCPCLIENT DATA (%i): %s\n", (int)buff_len, (char *)buff.data());
+		.on_data = [](qpuriq::net::TCPClient &client, qpuriq::u8 *data, std::size_t length) -> void {
+			if(length > 0) {
+				std::printf("TCPCLIENT DATA (%i): ", (int)length);
+
+				for(int i = 0; i < (int)length; i++)
+					std::printf("%c", data[i]);
+				
+				std::printf("\n");
 			}
+		},
+		.on_close = [](qpuriq::net::TCPClient &client) {
+			std::printf("TCPCLIENT CLOSED.\n");
 		},
 	});
 

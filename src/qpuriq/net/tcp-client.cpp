@@ -20,154 +20,208 @@
 #include "../event.hpp"
 
 namespace qpuriq::net {
-	void tcp_client_update_cb(backend::Event &event) {
-		void *sock = event.get_user_p1();
-		TCPClient *tcp_client = (TCPClient *)event.get_user_p0();
+	typedef struct tcp_client_obj_t {
+		TCPClient *client = nullptr;
+		void *addr = nullptr;
+		void *sock = nullptr;
 
-		//std::printf("SOCKET D: %p\n", sock);
+		void destroy_address(void) {
+			if(addr != nullptr)
+				backend::get_current_backend()->net_resolve_hostname_free(addr);
+			
+			addr = nullptr;
+		};
 
-		TCPClient::data_callback_t data_cb = tcp_client->get_callback_data();
-		TCPClient::error_callback_t err_cb = tcp_client->get_callback_error();
-		
-		u8 buf[256];
-		const int buflen = 256;
-		int read_rc = backend::get_current_backend()->net_tcp_client_read(sock, buf, buflen);
+		void destroy_connection(void) {
+			if(sock != nullptr)
+				backend::get_current_backend()->net_tcp_client_free(sock);
 
-		//std::printf("[read RC] %i\n", read_rc);
+			sock = nullptr;
+		};
 
-		if(read_rc == 0 && backend::get_current_backend()->net_tcp_client_get_connection_status(sock) == backend::Backend::BackendNetStatusFailed) {
-			event.invalidate();
-			backend::get_current_backend()->net_tcp_client_free(event.get_user_p1());
+		void destroy_all(void) {
+			destroy_address();
+			destroy_connection();
+			client = nullptr;
+		};
 
-			std::printf("TCPCLIENT CIAO\n");
+		static void update_event_cb(backend::Event &event);
+	} tcp_client_obj_t;
 
-			return;
-		}
+	tcp_client_obj_t *alloc_tcp_client_obj(void) {
+		Ox::Error err;
+		tcp_client_obj_t *client = Ox::inhale<tcp_client_obj_t>(err);
 
-		if(read_rc < 0) {
-			event.invalidate();
-			backend::get_current_backend()->net_tcp_client_free(event.get_user_p1());
-			tcp_client->internal_set_socket(nullptr);
-			if(err_cb)
-				err_cb(*tcp_client, __LINE__);
+		if(client == nullptr)
+			return nullptr;
 
-			return;
-		}
+		client->addr = client->sock = nullptr;
 
-		//std::printf("[conn RC] %i\n", backend::get_current_backend()->net_tcp_client_get_connection_status(sock));
-
-		std::vector<u8> buff_v;
-		for(int i = 0; i < read_rc; i++)
-			buff_v.push_back(buf[i]);
-		
-		if(data_cb)
-			data_cb(*tcp_client, buff_v, read_rc);
+		return client;
 	};
 
-	void tcp_client_connect_cb(backend::Event &event) {
-		TCPClient *tcp_client = (TCPClient *)event.get_user_p3();
-		TCPClient::error_callback_t err_cb = tcp_client->get_callback_error();
+	void free_tcp_client_obj(tcp_client_obj_t *client) {
+		if(client == nullptr)
+			return;
 
-		// first part: address resolution
-		if(event.get_user_p1() == nullptr) {
-			int rc = backend::get_current_backend()->net_resolve_hostname_get_status(event.get_user_p0());
+		client->destroy_all();
+		Ox::exhale(client);
+	};
+
+	void tcp_client_obj_t::update_event_cb(backend::Event &event) {
+		tcp_client_obj_t *tcp_client_obj = (tcp_client_obj_t *)event.get_user_p0();
+		if(tcp_client_obj == nullptr)
+			return;
+
+		if(tcp_client_obj->client == nullptr) {
+			tcp_client_obj->destroy_all();
+			event.invalidate();
+			return;
+		}
+
+		TCPClient *client = tcp_client_obj->client;
+		void *addr = tcp_client_obj->addr;
+		void *sock = tcp_client_obj->sock;
+
+		TCPClient::error_callback_t err_cb = client->get_callback_error();
+
+		if(addr == nullptr && sock == nullptr) {
+			string hostname = event.get_user_s0();
+			addr = backend::get_current_backend()->net_resolve_hostname_alloc_and_resolve(hostname);
+
+			if(addr == nullptr) {
+				event.invalidate();
+
+				if(err_cb)
+					err_cb(*client, __LINE__);
+
+				free_tcp_client_obj(tcp_client_obj);
+
+				return;
+			}
+
+			tcp_client_obj->addr = addr;
+
+			return;
+		}
+
+		if(addr != nullptr && sock == nullptr) {
+			int rc = backend::get_current_backend()->net_resolve_hostname_get_status(addr);
 
 			if(rc == backend::Backend::BackendNetStatusWaiting)
 				return;
 
-			if(rc == backend::Backend::BackendNetStatusSuccess) {
-				event.set_user_i0(1);
+			if(rc == backend::Backend::BackendNetStatusFailed) {
+				event.invalidate();
 
-				void *sock = backend::get_current_backend()->net_tcp_client_create_and_connect(event.get_user_p0(), event.get_user_i1());
-				if(sock == nullptr) {
-					event.invalidate();
-					backend::get_current_backend()->net_resolve_hostname_free(event.get_user_p0());
-					tcp_client->internal_set_socket(nullptr);
-					if(err_cb)
-						err_cb(*tcp_client, __LINE__);
-				}
+				if(err_cb)
+					err_cb(*client, __LINE__);
 
-				event.set_user_p1(sock);
-				std::printf("SOCK A¹: %p\n", sock);
-				std::printf("SOCK A²: %p\n", event.get_user_p1());
+				free_tcp_client_obj(tcp_client_obj);
+
 				return;
 			}
 
-			// else fail
-			event.invalidate();
-			backend::get_current_backend()->net_resolve_hostname_free(event.get_user_p0());
-			tcp_client->internal_set_socket(nullptr);
+			if(rc == backend::Backend::BackendNetStatusSuccess) {
+				int port = event.get_user_i0();
+				sock = backend::get_current_backend()->net_tcp_client_create_and_connect(addr, port);
 
-			if(err_cb)
-				err_cb(*tcp_client, __LINE__);
+				if(sock == nullptr) {
+					event.invalidate();
 
-			return;
-		}
+					if(err_cb)
+						err_cb(*client, __LINE__);
 
-		// second part: connection
-		int rc = backend::get_current_backend()->net_tcp_client_get_connection_status(event.get_user_p1());
+					free_tcp_client_obj(tcp_client_obj);
 
-		if(rc == backend::Backend::BackendNetStatusWaiting)
-			return;
+					return;
+				}
 
-		if(rc == backend::Backend::BackendNetStatusSuccess) {
-			void *sock = event.get_user_p1();
-
-			backend::get_current_backend()->net_resolve_hostname_free(event.get_user_p0());
-			event.invalidate();
-			TCPClient::connect_callback_t connected_cb = tcp_client->get_callback_connect();
-
-			tcp_client->internal_set_socket(sock);
-
-			if(connected_cb)
-				connected_cb(*tcp_client);
-
-			backend::Event e;
-			e.set_period_in_ms(1);
-			e.set_user_p0((void *)tcp_client);
-			e.set_user_p1(sock);
-			e.set_callback(tcp_client_update_cb);
-			std::printf("SOCKET C: %p\n", sock);
-
-			backend::get_current_backend()->register_event(e);
+				tcp_client_obj->sock = sock;
+			}
 
 			return;
 		}
 
-		// else fail
-		event.invalidate();
-		backend::get_current_backend()->net_resolve_hostname_free(event.get_user_p0());
-		backend::get_current_backend()->net_tcp_client_free(event.get_user_p1());
-		tcp_client->internal_set_socket(nullptr);
+		if(addr != nullptr && sock != nullptr) {
+			int rc = backend::get_current_backend()->net_tcp_client_get_connection_status(sock);
 
-		if(err_cb)
-			err_cb(*tcp_client, 456);
-		
-		return;
+			if(rc == backend::Backend::BackendNetStatusWaiting)
+				return;
+
+			if(rc == backend::Backend::BackendNetStatusFailed) {
+				event.invalidate();
+
+				if(err_cb)
+					err_cb(*client, __LINE__);
+
+				free_tcp_client_obj(tcp_client_obj);
+
+				return;
+			}
+
+			if(rc == backend::Backend::BackendNetStatusSuccess) {
+				tcp_client_obj->destroy_address();
+				
+				TCPClient::connect_callback_t conn_cb = client->get_callback_connect();
+				if(conn_cb)
+					conn_cb(*client);
+			}
+
+			return;
+		}
+
+		if(addr == nullptr && sock != nullptr) {
+			TCPClient::data_callback_t data_cb = client->get_callback_data();
+
+			u8 buff[256];
+			int rc = backend::get_current_backend()->net_tcp_client_read(sock, (void *)buff, 256);
+
+			if(rc < 0) {
+				event.invalidate();
+
+				if(err_cb)
+					err_cb(*client, __LINE__);
+
+				free_tcp_client_obj(tcp_client_obj);
+
+				return;
+			}
+
+			if(backend::get_current_backend()->net_tcp_client_get_connection_status(sock) != backend::Backend::BackendNetStatusSuccess) {
+				event.invalidate();
+
+				TCPClient::close_callback_t close_cb = client->get_callback_close();
+				if(close_cb)
+					close_cb(*client);
+
+				free_tcp_client_obj(tcp_client_obj);
+
+				return;
+			}
+
+			if(data_cb)
+				data_cb(*client, buff, rc);
+
+			return;
+		}
 	};
 
 	TCPClient::TCPClient(void) {
-		sock = nullptr;
+		sock = alloc_tcp_client_obj();
 	};
 
 	TCPClient::TCPClient(tcp_client_parameters_t setup) {
-		sock = nullptr;
-
+		sock = alloc_tcp_client_obj();
+		
 		set_user(setup.user);
 		set_timeout_ms(setup.timeout_ms);
 		set_callback_connect(setup.on_connect);
 		set_callback_error(setup.on_error);
 		set_callback_data(setup.on_data);
+		set_callback_close(setup.on_close);
 
 		connect(setup.hostname, setup.port);
-	};
-
-	void *TCPClient::internal_get_socket(void) {
-		return sock;
-	};
-
-	void TCPClient::internal_set_socket(void *p) {
-		sock = p;
 	};
 
 	void TCPClient::set_user(void *p) {
@@ -190,23 +244,32 @@ namespace qpuriq::net {
 		callback_data = f;
 	};
 
-	void TCPClient::connect(string hostname, int port) {
-		backend::Event event;
-		event.set_period_in_ms(5);
-		event.set_user_i1(port);
-		event.set_user_p0(backend::get_current_backend()->net_resolve_hostname_alloc_and_resolve(hostname));
-		event.set_user_p1(nullptr);
-		event.set_user_p3((void *)this);
-		event.set_callback(tcp_client_connect_cb);
+	void TCPClient::set_callback_close(close_callback_t f) {
+		callback_close = f;
+	};
 
-		backend::get_current_backend()->register_event(event);
+	void TCPClient::connect(string hostname, int port) {
+		tcp_client_obj_t *client_obj = (tcp_client_obj_t *)sock;
+		if(client_obj != nullptr) {
+			client_obj->client = this;
+
+			backend::Event event;
+			event.set_period_in_ms(1);
+			event.set_callback(tcp_client_obj_t::update_event_cb);
+
+			event.set_user_i0(port);
+			event.set_user_s0(hostname);
+			event.set_user_p0(sock);
+
+			backend::get_current_backend()->register_event(event);
+		}
 	};
 
 	int TCPClient::write(const u8 *buff, std::size_t buff_len) {
-		if(sock == nullptr)
-			return -1;
+		tcp_client_obj_t *client_obj = (tcp_client_obj_t *)sock;
+		void *sock = client_obj->sock;
 
-		if(buff == nullptr || buff_len < 1)
+		if(client_obj == nullptr || sock == nullptr)
 			return -1;
 
 		return backend::get_current_backend()->net_tcp_client_write(sock, buff, buff_len);
@@ -230,5 +293,9 @@ namespace qpuriq::net {
 
 	TCPClient::data_callback_t TCPClient::get_callback_data(void) {
 		return callback_data;
+	};
+
+	TCPClient::close_callback_t TCPClient::get_callback_close(void) {
+		return callback_close;
 	};
 };

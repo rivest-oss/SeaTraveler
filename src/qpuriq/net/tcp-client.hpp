@@ -22,7 +22,8 @@ namespace qpuriq::net {
 		public:
 			typedef void (* connect_callback_t)(TCPClient &client);
 			typedef void (* error_callback_t)(TCPClient &client, int error);
-			typedef void (* data_callback_t)(TCPClient &client, std::vector<u8> data, size_t length);
+			typedef void (* data_callback_t)(TCPClient &client, u8 *data, size_t length);
+			typedef void (* close_callback_t)(TCPClient &client);
 
 			typedef struct tcp_client_parameters_t {
 				string hostname;
@@ -33,6 +34,7 @@ namespace qpuriq::net {
 				connect_callback_t on_connect = nullptr;
 				error_callback_t on_error = nullptr;
 				data_callback_t on_data = nullptr;
+				close_callback_t on_close = nullptr;
 			} tcp_client_parameters_t;
 		
 		private:
@@ -41,6 +43,7 @@ namespace qpuriq::net {
 			connect_callback_t callback_connect = nullptr;
 			error_callback_t callback_error = nullptr;
 			data_callback_t callback_data = nullptr;
+			close_callback_t callback_close = nullptr;
 
 			void *resolved_hostname = nullptr;
 			void *sock = nullptr;
@@ -50,19 +53,18 @@ namespace qpuriq::net {
 			TCPClient(tcp_client_parameters_t setup);
 
 			void *get_user(void);
-			void *internal_get_socket(void);
-			void internal_set_socket(void *p);
-
 			unsigned long get_timeout_ms(void);
 			connect_callback_t get_callback_connect(void);
 			error_callback_t get_callback_error(void);
 			data_callback_t get_callback_data(void);
+			close_callback_t get_callback_close(void);
 
 			void set_user(void *p);
 			void set_timeout_ms(unsigned long t);
 			void set_callback_connect(connect_callback_t f);
 			void set_callback_error(error_callback_t f);
 			void set_callback_data(data_callback_t f);
+			void set_callback_close(close_callback_t f);
 
 			void connect(string hostname, int port);
 			int write(const u8 *buff, std::size_t buff_len);

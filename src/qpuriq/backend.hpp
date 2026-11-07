@@ -17,6 +17,7 @@
 #pragma once
 #include "std.hpp"
 #include "event.hpp"
+#include "../Ox/include/nuclei.hpp"
 
 namespace qpuriq::backend {
 	class Window {
