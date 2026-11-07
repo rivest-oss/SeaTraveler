@@ -174,26 +174,27 @@ namespace qpuriq::net {
 		if(addr == nullptr && sock != nullptr) {
 			TCPClient::data_callback_t data_cb = client->get_callback_data();
 
+			bool closed_cleanly = false;
 			u8 buff[256];
-			int rc = backend::get_current_backend()->net_tcp_client_read(sock, (void *)buff, 256);
+			int rc = backend::get_current_backend()->net_tcp_client_read(sock, (void *)buff, 256, closed_cleanly);
 
-			if(rc < 0) {
+			if(closed_cleanly) {
 				event.invalidate();
 
-				if(err_cb)
-					err_cb(*client, __LINE__);
+				TCPClient::close_callback_t close_cb = client->get_callback_close();
+				if(close_cb)
+					close_cb(*client);
 
 				free_tcp_client_obj(tcp_client_obj);
 
 				return;
 			}
 
-			if(backend::get_current_backend()->net_tcp_client_get_connection_status(sock) != backend::Backend::BackendNetStatusSuccess) {
+			if(rc < 0) {
 				event.invalidate();
 
-				TCPClient::close_callback_t close_cb = client->get_callback_close();
-				if(close_cb)
-					close_cb(*client);
+				if(err_cb)
+					err_cb(*client, __LINE__);
 
 				free_tcp_client_obj(tcp_client_obj);
 

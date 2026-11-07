@@ -204,12 +204,33 @@ namespace qpuriq::backend {
 				NET_DestroyStreamSocket(socket);
 			};
 
-			int net_tcp_client_read(void *sock, void *buf, int buflen) {
+			int net_tcp_client_read(void *sock, void *buf, int buflen, bool &closed_cleanly) {
 				NET_StreamSocket *socket = (NET_StreamSocket *)sock;
 				if(socket == nullptr)
 					return -1;
 
-				return NET_ReadFromStreamSocket(socket, buf, buflen);
+				int rc = NET_ReadFromStreamSocket(socket, buf, buflen);
+				if(rc < 0) {
+					const char *s = SDL_GetError();
+					if(s == nullptr)
+						return rc;
+
+					const char *no_err_s = "End of stream";
+					const int no_err_s_length = 14;
+
+					for(int i = 0; i < no_err_s_length; i++) {
+						if(no_err_s[i] != s[i]) {
+							SDL_SetError("%s", no_err_s);
+							return rc;
+						}
+					};
+
+					closed_cleanly = true;
+
+					return 0;
+				}
+
+				return rc;
 			};
 
 			int net_tcp_client_write(void *sock, const void *buf, int buflen) {

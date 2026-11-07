@@ -51,7 +51,7 @@ namespace qpuriq::backend {
 			virtual int net_tcp_client_get_connection_status(void *p) = 0;
 			virtual void net_tcp_client_free(void *p) = 0;
 
-			virtual int net_tcp_client_read(void *sock, void *buf, int buflen) = 0;
+			virtual int net_tcp_client_read(void *sock, void *buf, int buflen, bool &closed_cleanly) = 0;
 			virtual int net_tcp_client_write(void *sock, const void *buf, int buflen) = 0;
 
 			virtual void register_event(Event &event) = 0;
