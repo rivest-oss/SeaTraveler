@@ -74,6 +74,8 @@ namespace qpuriq::backend {
 			std::vector<Event> register_queue;
 
 			int flag_quit_code = 0;
+
+			double time_since_last_event = 0.0;
 		
 		public:
 			BackendSDL(void) {
@@ -274,6 +276,11 @@ namespace qpuriq::backend {
 					events.insert_or_assign(event.get_unique_id(), event);
 
 				register_queue.clear();
+
+				if(events.size() < 1)
+					time_since_last_event += dt;
+				else
+					time_since_last_event = 0.0;
 				
 				std::vector<unsigned long> flagged_deletion;
 
@@ -311,6 +318,11 @@ namespace qpuriq::backend {
 				
 				for(unsigned long id : flagged_deletion)
 					events.erase(id);
+
+				if(should_quit == 0 && time_since_last_event > 1.0) {
+					should_quit = 1;
+					std::printf("All events were cleared.\n");
+				}
 
 				return should_quit;
 			};
